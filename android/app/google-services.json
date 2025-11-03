@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "858448238585",
+    "project_id": "spincity-98ca4",
+    "storage_bucket": "spincity-98ca4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:858448238585:android:e8b026f83ace7be352cf28",
+        "android_client_info": {
+          "package_name": "com.example.spin_city"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDRQcD0O0ZQ37fAibQBjA9k6ONnBMMjJRw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
