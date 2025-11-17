@@ -45,13 +45,13 @@ flutter {
     source = "../.."
 }
 
-dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
-    //implementation("com.google.firebase:firebase-analytics") // For Firebase Analytics
-    //implementation("com.google.firebase:firebase-auth") 
-    implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-storage-ktx")
-}
-apply plugin: "com.google.gms.google-services"
+//dependencies {
+//    implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
+//    //implementation("com.google.firebase:firebase-analytics") // For Firebase Analytics
+//    //implementation("com.google.firebase:firebase-auth")
+//    implementation("com.google.firebase:firebase-analytics-ktx")
+//    implementation("com.google.firebase:firebase-auth-ktx")
+//    implementation("com.google.firebase:firebase-firestore-ktx")
+//    implementation("com.google.firebase:firebase-storage-ktx")
+//}
+

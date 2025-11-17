@@ -1,34 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-
-import 'features/auth/email_auth_screen.dart';
 import 'features/auth/phone_auth_screen.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const SpinCityApp());
-}
-
-class SpinCityApp extends StatelessWidget {
-  const SpinCityApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SpinCity',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.blue,
-      ),
-      home: const AuthChoiceScreen(),
-    );
-  }
-}
+import 'features/auth/email_auth_screen.dart';
 
 class AuthChoiceScreen extends StatelessWidget {
   const AuthChoiceScreen({super.key});
@@ -47,7 +19,7 @@ class AuthChoiceScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const EmailAuthScreen()),
                 );
               },
-              child: const Text('Login / Register with Email'),
+              child: const Text('Login with Email'),
             ),
             const SizedBox(height: 12),
             ElevatedButton(
@@ -56,7 +28,7 @@ class AuthChoiceScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const PhoneAuthScreen()),
                 );
               },
-              child: const Text('Login with Phone (test numbers only)'),
+              child: const Text('Login with Phone'),
             ),
           ],
         ),
