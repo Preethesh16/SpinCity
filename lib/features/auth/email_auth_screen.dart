@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../home/home_screen.dart';
 
 class EmailAuthScreen extends StatefulWidget {
   const EmailAuthScreen({super.key});
@@ -19,6 +20,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   // Controllers
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _phone = TextEditingController();
 
   // Extra fields (for register)
   final _name = TextEditingController();
@@ -33,6 +35,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _phone.dispose();
     _name.dispose();
     _age.dispose();
     _address.dispose();
@@ -74,49 +77,56 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
 
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => ProfileScreen(data: doc.data()!),
-          ),
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       } else {
         // REGISTER FLOW
-        final cred =
-            await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        final phoneDigits = _phone.text.replaceAll(RegExp(r'\D'), '');
+        final phone = '+91$phoneDigits';
+
+        // 1) Check if this phone is already used by another user
+        final existingPhone = await FirebaseFirestore.instance
+            .collection('users')
+            .where('phone', isEqualTo: phone)
+            .limit(1)
+            .get();
+
+        if (existingPhone.docs.isNotEmpty) {
+          setState(() {
+            _error =
+                'This phone number is already registered.\nPlease login using that account or use a different phone.';
+          });
+          return;
+        }
+
+        // 2) Create auth user with email/password
+        final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _email.text.trim(),
           password: _password.text.trim(),
         );
 
         final uid = cred.user!.uid;
 
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .set({
+        final profile = {
           'name': _name.text.trim(),
           'age': int.tryParse(_age.text.trim()) ?? 0,
           'address': _address.text.trim(),
           'pincode': _pincode.text.trim(),
           'gender': _gender,
-          'role': _role, // Student / Professional
+          'role': _role,
           'email': _email.text.trim(),
+          'phone': phone,
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        };
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .set(profile);
 
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => ProfileScreen(
-              data: {
-                'name': _name.text.trim(),
-                'age': int.tryParse(_age.text.trim()) ?? 0,
-                'address': _address.text.trim(),
-                'pincode': _pincode.text.trim(),
-                'gender': _gender,
-                'role': _role,
-                'email': _email.text.trim(),
-              },
-            ),
-          ),
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -137,9 +147,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isLogin ? 'Login with Email' : 'Register'),
-      ),
+      appBar: AppBar(title: Text(_isLogin ? 'Login with Email' : 'Register')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -164,6 +172,23 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                   validator: (v) =>
                       v == null || v.trim().isEmpty ? 'Enter name' : null,
                 ),
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone',
+                    prefixText: '+91 ',
+                  ),
+                  validator: (v) {
+                    final digits = v?.replaceAll(RegExp(r'\D'), '') ?? '';
+                    if (digits.length != 10) {
+                      return 'Enter 10-digit phone number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 8),
+
                 TextFormField(
                   controller: _age,
                   keyboardType: TextInputType.number,
@@ -263,50 +288,14 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                           _error = null;
                         });
                       },
-                child: Text(_isLogin
-                    ? 'New here? Create an account'
-                    : 'Already have an account? Login'),
+                child: Text(
+                  _isLogin
+                      ? 'New here? Create an account'
+                      : 'Already have an account? Login',
+                ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Simple page to show fetched profile after login/registration.
-class ProfileScreen extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const ProfileScreen({super.key, required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Your Profile')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Name: ${data['name'] ?? ''}'),
-            Text('Age: ${data['age'] ?? ''}'),
-            Text('Address: ${data['address'] ?? ''}'),
-            Text('Pincode: ${data['pincode'] ?? ''}'),
-            Text('Gender: ${data['gender'] ?? ''}'),
-            Text('Role: ${data['role'] ?? ''}'),
-            Text('Email: ${data['email'] ?? ''}'),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
-              },
-              child: const Text('Logout'),
-            )
-          ],
         ),
       ),
     );
