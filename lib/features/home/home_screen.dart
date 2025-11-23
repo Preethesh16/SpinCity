@@ -294,53 +294,150 @@ class _OrdersTab extends StatelessWidget {
       );
     }
 
+    final ordersQuery = FirebaseFirestore.instance
+        .collection('orders')
+        .where('userId', isEqualTo: user.uid)
+        .orderBy('createdAt', descending: true);
+
     return Scaffold(
       appBar: AppBar(title: const Text('My Orders')),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('orders')
-            .where('userId', isEqualTo: user.uid)
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
+        stream: ordersQuery.snapshots(),
         builder: (context, snap) {
-          if (snap.hasError) {
-            return Center(
-              child: Text(
-                'Error loading orders:\n${snap.error}',
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
-          final docs = snap.data!.docs;
+          if (snap.hasError) {
+            return Center(child: Text('Error: ${snap.error}'));
+          }
+          final docs = snap.data?.docs ?? [];
           if (docs.isEmpty) {
             return const Center(child: Text('No orders yet.'));
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.all(12),
             itemCount: docs.length,
-            itemBuilder: (context, i) {
-              final data = docs[i].data();
-              final service = data['serviceType'] ?? 'Service';
-              final status = data['status'] ?? 'Pending';
-              final clothes = data['clothesCount'] ?? 0;
-              final createdAt =
-                  (data['createdAt'] as Timestamp?)?.toDate();
+            itemBuilder: (context, index) {
+              final data = docs[index].data();
+              final service = data['service'] ?? 'Service';
+              final count = data['clothesCount'] ?? 0;
+              final status = (data['status'] ?? 'pending') as String;
+              final pickup = data['pickupLabel'] ?? 'Pickup location';
+              final createdAt = data['createdAt'] as Timestamp?;
+              final createdStr = createdAt == null
+                  ? ''
+                  : '${createdAt.toDate().day}/${createdAt.toDate().month} '
+                    '${createdAt.toDate().hour.toString().padLeft(2, '0')}:'
+                    '${createdAt.toDate().minute.toString().padLeft(2, '0')}';
 
-              return ListTile(
-                title: Text(service),
-                subtitle: Text(
-                  'Clothes: $clothes\n'
-                  '${createdAt != null ? createdAt.toString() : ''}',
+              IconData statusIcon;
+              Color statusColor;
+              switch (status) {
+                case 'delivered':
+                  statusIcon = Icons.check_circle;
+                  statusColor = Colors.green;
+                  break;
+                case 'in_wash':
+                  statusIcon = Icons.local_laundry_service;
+                  statusColor = Colors.blue;
+                  break;
+                case 'picked_up':
+                  statusIcon = Icons.directions_bike;
+                  statusColor = Colors.orange;
+                  break;
+                default:
+                  statusIcon = Icons.hourglass_empty;
+                  statusColor = Colors.grey;
+              }
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                trailing: Text(status),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(statusIcon, color: statusColor),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              service,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            status.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$count clothes • $pickup',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      if (createdStr.isNotEmpty)
+                        Text(
+                          'Placed: $createdStr',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {
+                            // TODO: your tracking logic later
+                            // For now just show a placeholder screen
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => _TrackOrderPlaceholder(
+                                  orderId: docs[index].id,
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Track order'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           );
         },
+      ),
+    );
+  }
+}
+
+/// simple placeholder page for now
+class _TrackOrderPlaceholder extends StatelessWidget {
+  final String orderId;
+  const _TrackOrderPlaceholder({required this.orderId});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Track order')),
+      body: Center(
+        child: Text('Tracking UI coming soon…\nOrder ID: $orderId'),
       ),
     );
   }

@@ -201,75 +201,93 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       });
     }
   }
+Future<void> _placeOrder() async {
+  if (!_formKey.currentState!.validate()) return;
 
-  Future<void> _placeOrder() async {
-    if (!_formKey.currentState!.validate()) return;
+  setState(() {
+    _loading = true;
+    _error = null;
+  });
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      setState(() => _error = 'Not logged in');
+  try {
+    final user = FirebaseAuth.instance.currentUser!;
+    final userRef =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+    final userSnap = await userRef.get();
+    final data = userSnap.data() ?? {};
+
+    final bool active = data['subscriptionActive'] == true;
+    final Timestamp? endTs = data['subscriptionEnd'] as Timestamp?;
+    final int limit = (data['subscriptionOrderLimit'] ?? 4) as int;
+    final int used = (data['subscriptionOrdersUsed'] ?? 0) as int;
+
+    // 1) Check subscription active + not expired
+    if (!active || endTs == null ||
+        DateTime.now().isAfter(endTs.toDate())) {
+      setState(() {
+        _error =
+            'No active subscription or it has expired. Please subscribe/renew.';
+        _loading = false;
+      });
       return;
     }
 
-    if (_lat == null || _lng == null) {
-      setState(() => _error = 'Please set your pickup location from Home first.');
+    // 2) Check that user still has orders left
+    if (used >= limit) {
+      setState(() {
+        _error =
+            'You have used all $limit orders in this subscription.';
+        _loading = false;
+      });
       return;
     }
 
-    setState(() {
-      _error = null;
-      _loading = true;
+    // 3) Read location info from user doc (we stored earlier)
+    final pickupLabel = data['locationLabel'] ?? 'Not set';
+    final pickupPincode = data['pincode'] ?? '';
+    final pickupLat = (data['lat'] as num?)?.toDouble();
+    final pickupLng = (data['lng'] as num?)?.toDouble();
+
+    // 👇 use your existing controller name
+    final clothesCount = int.parse(_clothesController.text.trim());
+
+    // 4) Create the order AND update subscriptionOrdersUsed
+    final ordersRef = FirebaseFirestore.instance.collection('orders');
+
+    await ordersRef.add({
+      'userId': user.uid,
+      'serviceType': widget.serviceType,   // e.g. 'wash_iron'
+      'serviceLabel': widget.serviceLabel, // e.g. 'Wash & Iron'
+      'clothesCount': clothesCount,
+      'pickupLabel': pickupLabel,
+      'pickupPincode': pickupPincode,
+      'pickupLat': pickupLat,
+      'pickupLng': pickupLng,
+      'createdAt': FieldValue.serverTimestamp(),
+      'status': 'pending',                 // later: picked_up, in_wash, delivered
     });
 
-    try {
-      final uid = user.uid;
-      final clothesCount = int.tryParse(_clothesController.text.trim()) ?? 0;
+    // increment orders used
+    await userRef.update({
+      'subscriptionOrdersUsed': used + 1,
+    });
 
-      // read subscription to decide whether to increment usage
-      final userRef =
-          FirebaseFirestore.instance.collection('users').doc(uid);
-      final userSnap = await userRef.get();
-      final uData = userSnap.data() ?? {};
-      final bool hasSub = (uData['subscriptionActive'] as bool?) ?? false;
-
-      // create order
-      final ordersRef = FirebaseFirestore.instance.collection('orders');
-      await ordersRef.add({
-        'userId': uid,
-        'serviceType': widget.serviceType,
-        'serviceLabel': widget.serviceLabel,
-        'clothesCount': clothesCount,
-        'status': 'placed',
-        'createdAt': FieldValue.serverTimestamp(),
-        'locationLabel': _locationLabel,
-        'pincode': _pincode,
-        'lat': _lat,
-        'lng': _lng,
-      });
-
-      // increment subscriptionOrdersUsed if subscription is active
-      if (hasSub) {
-        await userRef.update({
-          'subscriptionOrdersUsed': FieldValue.increment(1),
-        });
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order placed successfully!')),
-      );
-
-      Navigator.of(context).pop(); // back to Services
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Order placed ✅')),
+    );
+    Navigator.of(context).pop(); // go back after placing order
+  } catch (e) {
+    setState(() {
+      _error = e.toString();
+    });
+  } finally {
+    if (mounted) {
+      setState(() => _loading = false);
     }
   }
+}
 
   @override
   void dispose() {
