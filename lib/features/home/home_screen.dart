@@ -303,39 +303,40 @@ class _OrdersTab extends StatelessWidget {
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snap) {
+          if (snap.hasError) {
+            return Center(
+              child: Text(
+                'Error loading orders:\n${snap.error}',
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snap.hasData || snap.data!.docs.isEmpty) {
-            return const Center(
-              child: Text('No orders yet. Go to Services and place one!'),
-            );
-          }
-
           final docs = snap.data!.docs;
+          if (docs.isEmpty) {
+            return const Center(child: Text('No orders yet.'));
+          }
 
           return ListView.builder(
             itemCount: docs.length,
             itemBuilder: (context, i) {
               final data = docs[i].data();
-              final label = data['serviceLabel']?.toString() ?? 'Service';
-              final status = data['status']?.toString() ?? 'placed';
-              final count = data['clothesCount']?.toString() ?? '?';
-              final location = data['locationLabel']?.toString() ?? '';
-              final ts = data['createdAt'] as Timestamp?;
-              final dateStr = ts != null
-                  ? ts.toDate().toLocal().toString().split('.').first
-                  : '';
+              final service = data['serviceType'] ?? 'Service';
+              final status = data['status'] ?? 'Pending';
+              final clothes = data['clothesCount'] ?? 0;
+              final createdAt =
+                  (data['createdAt'] as Timestamp?)?.toDate();
 
               return ListTile(
-                leading: const Icon(Icons.local_laundry_service),
-                title: Text(label),
+                title: Text(service),
                 subtitle: Text(
-                  'Clothes: $count • Status: $status'
-                  '${location.isNotEmpty ? '\n$location' : ''}'
-                  '${dateStr.isNotEmpty ? '\n$dateStr' : ''}',
+                  'Clothes: $clothes\n'
+                  '${createdAt != null ? createdAt.toString() : ''}',
                 ),
+                trailing: Text(status),
               );
             },
           );
